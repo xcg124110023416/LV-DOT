@@ -26,11 +26,11 @@ Zhefan Xu\*, Haoyu Shen\*, Xinming Han, Hanyu Jin, Kanlong Ye, and Kenji Shimada
 - The GitHub code, video demos, and relavant papers for our LV-DOT framework are released. The authors will actively maintain and update this repo!
 
 ## Table of Contents
-- [Installation Guide](Installation-Guide)
-- [Run Demo](Run-Demo)
-    - [Run on dataset](Run-on-dataset)
-    - [Run on your device](Run-on-your-device)
-- [Citation and Reference](Citation-and-Reference)
+- [Installation Guide](#Installation-Guide)
+- [Run Demo](#Run-Demo)
+    - [Run on dataset](#Run-on-dataset)
+    - [Run on your device](#Run-on-your-device)
+- [Citation and Reference](#Citation-and-Reference)
 
 ## Installation Guide
 The system requirements for this repository are as follows. Please ensure your system meets these requirements:
