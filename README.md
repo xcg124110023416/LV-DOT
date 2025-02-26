@@ -28,8 +28,8 @@ Zhefan Xu\*, Haoyu Shen\*, Xinming Han, Hanyu Jin, Kanlong Ye, and Kenji Shimada
 ## Table of Contents
 - [Installation Guide](#Installation-Guide)
 - [Run Demo](#Run-Demo)
-    - [Run on dataset](#Run-on-dataset)
-    - [Run on your device](#Run-on-your-device)
+    - [Run on dataset](#a-Run-on-dataset)
+    - [Run on your device](#b-Run-on-your-device)
 - [Citation and Reference](#Citation-and-Reference)
 
 ## Installation Guide
