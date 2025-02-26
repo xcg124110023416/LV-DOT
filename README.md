@@ -1,9 +1,13 @@
 # LV-DOT: LiDAR-Visual Dynamic Obstacle Detection and Tracking
 
 This repository implements teh LiDAR-visual Dynamic Obstacle Detection and Tracking (LV-DOT) algorithm which aims at detecting and tracking dynamic obstacles for robots with extremely constraint computational resources.
-```
-DEMO TODO
-```
+
+
+![corridor](https://github.com/user-attachments/assets/4f4df8ac-0b29-4fe7-9e58-8a181c65c7c0)
+![intersection](https://github.com/user-attachments/assets/873b1569-f99c-4037-92ad-63e3c6e18e8d)
+![office](https://github.com/user-attachments/assets/3c5d81a3-7a65-4c1b-9893-90b2d01b760a)
+![workspace](https://github.com/user-attachments/assets/6cad27c8-571c-4e2b-bdce-c4706f61fd36)
+
 
 
 For additional details, please refer to the related paper available here:
