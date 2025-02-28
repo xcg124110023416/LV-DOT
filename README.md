@@ -119,6 +119,6 @@ Example qualitative perception results in various testing environments are shown
 ## Citation and Reference
 If our work is useful to your research, please consider citing our paper.
 ```
-TODO
+Coming soon
 ```
 
