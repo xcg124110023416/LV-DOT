@@ -30,7 +30,7 @@ Zhefan Xu\*, Haoyu Shen\*, Xinming Han, Hanyu Jin, Kanlong Ye, and Kenji Shimada
 - [Run Demo](#Run-Demo)
     - [Run on dataset](#a-Run-on-dataset)
     - [Run on your device](#b-Run-on-your-device)
-- [System Framework and Results](#System-Framework-and-Results)
+- [LV-DOT Framework and Results](#LV-DOT-Framework-and-Results)
 - [Citation and Reference](#Citation-and-Reference)
 
 
@@ -103,7 +103,7 @@ The LV-DOT can be directly utilized to assist mobile robot navigation and collis
   </tr>
 </table>
 
-## System Framework and Results
+## LV-DOT Framework and Results
 The LV-DOT framework is shown below. Using onboard LiDAR, camera, and odometry inputs, the LiDAR and depth detection modules detect 3D obstacles, while the color detection module identifies 2D dynamic obstacles. The LiDAR-visual fusion module refines these detections, and the tracking module classifies obstacles as static or dynamic.
 
 <p align="center">
