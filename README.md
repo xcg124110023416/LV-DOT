@@ -23,7 +23,7 @@ Zhefan Xu\*, Haoyu Shen\*, Xinming Han, Hanyu Jin, Kanlong Ye, and Kenji Shimada
 
 
 ## News
-- The GitHub code, video demos, and relavant papers for our LV-DOT framework are released. The authors will actively maintain and update this repo!
+- **2025-02-28:** The GitHub code, video demos, and relavant papers for our LV-DOT framework are released. The authors will actively maintain and update this repo!
 
 ## Table of Contents
 - [Installation Guide](#Installation-Guide)
