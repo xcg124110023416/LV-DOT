@@ -30,7 +30,9 @@ Zhefan Xu\*, Haoyu Shen\*, Xinming Han, Hanyu Jin, Kanlong Ye, and Kenji Shimada
 - [Run Demo](#Run-Demo)
     - [Run on dataset](#a-Run-on-dataset)
     - [Run on your device](#b-Run-on-your-device)
+- [System Framework]()
 - [Citation and Reference](#Citation-and-Reference)
+
 
 ## Installation Guide
 The system requirements for this repository are as follows. Please ensure your system meets these requirements:
@@ -101,6 +103,17 @@ The LV-DOT can be directly utilized to assist mobile robot navigation and collis
   </tr>
 </table>
 
+## System Framework
+The system framework is shown below. Using onboard LiDAR, camera, and odometry inputs, the LiDAR and depth detection modules detect 3D obstacles, while the color detection module identifies 2D dynamic obstacles in the image plane. The LiDAR-visual fusion module refines these detections, and the tracking module classifies obstacles as static or dynamic.
+
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/5352c7ae-341a-45c0-8ee1-253d9aed6078" width="80%">
+</p>
+
+Example qualitative perception results in various testing environments are shown below:
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/054e3285-4c44-49e3-939d-74176c5d676e" width="80%">
+</p>
 
 
 ## Citation and Reference
