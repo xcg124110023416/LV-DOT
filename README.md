@@ -92,6 +92,16 @@ Run the following command to launch dynamic obstacle detection and tracking.
 roslaunch onboard_detector run_detector.launch
 ```
 
+The LV-DOT can be directly utilized to assist mobile robot navigation and collision avoidance in dynamic environments, as demonstrated below:
+
+<table>
+  <tr>
+    <td><img src="https://github.com/user-attachments/assets/91a7b945-638a-42ba-9a93-ca1a9b380cab" alt="block - gif" style="width: 100%;"></td>
+    <td><img src="https://github.com/user-attachments/assets/cd728204-ad11-44d0-a95d-2286bb3809bc" alt="approach - gif" style="width: 100%;"></td>
+  </tr>
+</table>
+
+
 
 ## Citation and Reference
 If our work is useful to your research, please consider citing our paper.
