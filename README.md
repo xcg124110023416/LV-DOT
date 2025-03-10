@@ -17,7 +17,7 @@ This repository implements the LiDAR-visual Dynamic Obstacle Detection and Track
 For additional details, please refer to the related paper available here:
 
 
-Zhefan Xu\*, Haoyu Shen\*, Xinming Han, Hanyu Jin, Kanlong Ye, and Kenji Shimada, "LV-DOT: LiDAR-visual dynamic obstacle detection and tracking for autonomous robot navigation”, arXiv, 2025. [\[preprint\]](https://arxiv.org/pdf/2502.20607) [\[video\]](https://youtu.be/rRvgTulWqvk)
+Zhefan Xu\*, Haoyu Shen\*, Xinming Han, Hanyu Jin, Kanlong Ye, and Kenji Shimada, "LV-DOT: LiDAR-visual dynamic obstacle detection and tracking for autonomous robot navigation”, arXiv, 2025. [\[preprint\]](https://arxiv.org/pdf/2502.20607) [\[YouTube\]](https://youtu.be/rRvgTulWqvk) [\[BiliBili\]](https://www.bilibili.com/video/BV1qC9GY6EHj/?share_source=copy_web&vd_source=1333db331406abb1b5d4cece1e253427)
 
 *The authors contributed equally.
 
