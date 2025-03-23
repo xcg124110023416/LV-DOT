@@ -26,15 +26,16 @@ Zhefan Xu\*, Haoyu Shen\*, Xinming Han, Hanyu Jin, Kanlong Ye, and Kenji Shimada
 - **2025-02-28:** The GitHub code, video demos, and relavant papers for our LV-DOT framework are released. The authors will actively maintain and update this repo!
 
 ## Table of Contents
-- [Installation Guide](#Installation-Guide)
-- [Run Demo](#Run-Demo)
+- [Installation Guide](#I-Installation-Guide)
+- [Run Demo](#II-Run-Demo)
     - [Run on dataset](#a-Run-on-dataset)
     - [Run on your device](#b-Run-on-your-device)
-- [LV-DOT Framework and Results](#LV-DOT-Framework-and-Results)
-- [Citation and Reference](#Citation-and-Reference)
+- [LV-DOT Framework and Results](#III-LV-DOT-Framework-and-Results)
+- [Citation and Reference](#IV-Citation-and-Reference)
+- [Acknowledgement](#V-Acknowledgement)
 
 
-## Installation Guide
+## I. Installation Guide
 The system requirements for this repository are as follows. Please ensure your system meets these requirements:
 - Ubuntu 18.04/20.04 LTS
 - ROS Melodic/Noetic
@@ -60,7 +61,7 @@ catkin_make
 ```
 
 
-## Run Demo
+## II. Run Demo
 ### a. Run on dataset
 Please download the rosbag file from this [link](https://cmu.box.com/s/cucvje5b9xfpdpe57ilh0jx702b3ks2p):
 ```
@@ -103,7 +104,7 @@ The LV-DOT can be directly utilized to assist mobile robot navigation and collis
   </tr>
 </table>
 
-## LV-DOT Framework and Results
+## III. LV-DOT Framework and Results
 The LV-DOT framework is shown below. Using onboard LiDAR, camera, and odometry inputs, the LiDAR and depth detection modules detect 3D obstacles, while the color detection module identifies 2D dynamic obstacles. The LiDAR-visual fusion module refines these detections, and the tracking module classifies obstacles as static or dynamic.
 
 <p align="center">
@@ -116,7 +117,7 @@ Example qualitative perception results in various testing environments are shown
 </p>
 
 
-## Citation and Reference
+## IV. Citation and Reference
 If our work is useful to your research, please consider citing our paper.
 ```
 @article{LV-DOT,
@@ -126,4 +127,6 @@ If our work is useful to your research, please consider citing our paper.
   year={2025}
 }
 ```
+## V. Acknowledgement
+The author would like to express his sincere gratitude to Professor Kenji Shimada for his great support and all CERLAB UAV team members who contribute to the development of this research.
 
