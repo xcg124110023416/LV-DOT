@@ -10,14 +10,15 @@ This repository implements the LiDAR-visual Dynamic Obstacle Detection and Track
 
 <table>
   <tr>
-    <td><img src="https://github.com/user-attachments/assets/4f4df8ac-0b29-4fe7-9e58-8a181c65c7c0" alt="corridor - gif" style="width: 100%;"></td>
-    <td><img src="https://github.com/user-attachments/assets/873b1569-f99c-4037-92ad-63e3c6e18e8d" alt="intersection - gif" style="width: 100%;"></td>
+    <td><img src="media/LV-DOT-demo1.gif" style="width: 100%;"></td>
+    <td><img src="media/LV-DOT-demo2.gif" style="width: 100%;"></td>
   </tr>
   <tr>
-    <td><img src="https://github.com/user-attachments/assets/3c5d81a3-7a65-4c1b-9893-90b2d01b760a" alt="office - gif" style="width: 100%;"></td>
-    <td><img src="https://github.com/user-attachments/assets/6cad27c8-571c-4e2b-bdce-c4706f61fd36" alt="workspace - gif" style="width: 100%;"></td>
+    <td><img src="media/LV-DOT-demo3.gif" style="width: 100%;"></td>
+    <td><img src="media/LV-DOT-demo4.gif" style="width: 100%;"></td>
   </tr>
 </table>
+
 
 
 For additional details, please refer to the related paper available here:
@@ -105,8 +106,8 @@ The LV-DOT can be directly utilized to assist mobile robot navigation and collis
 
 <table>
   <tr>
-    <td><img src="https://github.com/user-attachments/assets/91a7b945-638a-42ba-9a93-ca1a9b380cab" alt="block - gif" style="width: 100%;"></td>
-    <td><img src="https://github.com/user-attachments/assets/cd728204-ad11-44d0-a95d-2286bb3809bc" alt="approach - gif" style="width: 100%;"></td>
+    <td><img src="media/navigation-demo.gif" style="width: 100%;"></td>
+    <td><img src="media/avoidance-demo.gif" style="width: 100%;"></td>
   </tr>
 </table>
 
