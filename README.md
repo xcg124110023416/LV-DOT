@@ -19,7 +19,7 @@ This repository implements the LiDAR-visual Dynamic Obstacle Detection and Track
   </tr>
 </table>
 
-The LV-DOT framework supports dynamic obstacle detection and tracking with multiple sensor configurations:
+**The LV-DOT framework supports dynamic obstacle detection and tracking with multiple sensor configurations:**
  - Camera-only mode.
  - LiDAR-only mode.
  - Combined LiDAR and camera mode.
