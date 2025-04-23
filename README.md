@@ -6,7 +6,7 @@
 [![Linux platform](https://img.shields.io/badge/platform-linux--arm-brown.svg)](https://releases.ubuntu.com/20.04/)
 
 
-This repository implements the LiDAR-visual Dynamic Obstacle Detection and Tracking (LV-DOT) algorithm which aims at detecting and tracking dynamic obstacles for robots with extremely constraint computational resources.
+This repository implements the LiDAR-visual Dynamic Obstacle Detection and Tracking (LV-DOT) framework which aims at detecting and tracking dynamic obstacles for robots with extremely constraint computational resources.
 
 <table>
   <tr>
@@ -19,6 +19,10 @@ This repository implements the LiDAR-visual Dynamic Obstacle Detection and Track
   </tr>
 </table>
 
+The LV-DOT framework supports dynamic obstacle detection and tracking using multiple sensor configurations:
+ - Camera-only mode.
+ - LiDAR-only mode.
+ - Combined LiDAR and camera mode.
 
 
 For additional details, please refer to the related paper available here:
