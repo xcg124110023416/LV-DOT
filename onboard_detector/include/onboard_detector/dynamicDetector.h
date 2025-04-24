@@ -229,8 +229,8 @@ namespace onboardDetector{
         // callback
         void depthPoseCB(const sensor_msgs::ImageConstPtr& img, const geometry_msgs::PoseStampedConstPtr& pose);
         void depthOdomCB(const sensor_msgs::ImageConstPtr& img, const nav_msgs::OdometryConstPtr& odom);
-        void lidarPoseCB(const sensor_msgs::PointCloud2ConstPtr& img, const geometry_msgs::PoseStampedConstPtr& pose);
-        void lidarOdomCB(const sensor_msgs::PointCloud2ConstPtr& img, const nav_msgs::OdometryConstPtr& odom);
+        void lidarPoseCB(const sensor_msgs::PointCloud2ConstPtr& cloudMsg, const geometry_msgs::PoseStampedConstPtr& pose);
+        void lidarOdomCB(const sensor_msgs::PointCloud2ConstPtr& cloudMsg, const nav_msgs::OdometryConstPtr& odom);
         void colorImgCB(const sensor_msgs::ImageConstPtr& img);
         void yoloDetectionCB(const vision_msgs::Detection2DArrayConstPtr& detections);
         void detectionCB(const ros::TimerEvent&);
