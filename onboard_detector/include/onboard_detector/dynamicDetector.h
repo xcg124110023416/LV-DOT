@@ -41,15 +41,19 @@ namespace onboardDetector{
         // ROS
         ros::NodeHandle nh_;
         std::shared_ptr<message_filters::Subscriber<sensor_msgs::Image>> depthSub_;
+        std::shared_ptr<message_filters::Subscriber<sensor_msgs::PointCloud2>> lidarCloudSub_;
         std::shared_ptr<message_filters::Subscriber<geometry_msgs::PoseStamped>> poseSub_;
         typedef message_filters::sync_policies::ApproximateTime<sensor_msgs::Image, geometry_msgs::PoseStamped> depthPoseSync;
         std::shared_ptr<message_filters::Synchronizer<depthPoseSync>> depthPoseSync_;
+        typedef message_filters::sync_policies::ApproximateTime<sensor_msgs::PointCloud2, geometry_msgs::PoseStamped> lidarPoseSync;
+        std::shared_ptr<message_filters::Synchronizer<lidarPoseSync>> lidarPoseSync_;
         std::shared_ptr<message_filters::Subscriber<nav_msgs::Odometry>> odomSub_;
         typedef message_filters::sync_policies::ApproximateTime<sensor_msgs::Image, nav_msgs::Odometry> depthOdomSync;
         std::shared_ptr<message_filters::Synchronizer<depthOdomSync>> depthOdomSync_;
+        typedef message_filters::sync_policies::ApproximateTime<sensor_msgs::PointCloud2, nav_msgs::Odometry> lidarOdomSync;
+        std::shared_ptr<message_filters::Synchronizer<lidarOdomSync>> lidarOdomSync_;
         ros::Subscriber colorImgSub_;
         ros::Subscriber yoloDetectionSub_;
-        ros::Subscriber lidarCloudSub_;
         ros::Timer detectionTimer_;
         ros::Timer lidarDetectionTimer_;
         ros::Timer trackingTimer_;
@@ -225,9 +229,10 @@ namespace onboardDetector{
         // callback
         void depthPoseCB(const sensor_msgs::ImageConstPtr& img, const geometry_msgs::PoseStampedConstPtr& pose);
         void depthOdomCB(const sensor_msgs::ImageConstPtr& img, const nav_msgs::OdometryConstPtr& odom);
+        void lidarPoseCB(const sensor_msgs::PointCloud2ConstPtr& cloudMsg, const geometry_msgs::PoseStampedConstPtr& pose);
+        void lidarOdomCB(const sensor_msgs::PointCloud2ConstPtr& cloudMsg, const nav_msgs::OdometryConstPtr& odom);
         void colorImgCB(const sensor_msgs::ImageConstPtr& img);
         void yoloDetectionCB(const vision_msgs::Detection2DArrayConstPtr& detections);
-        void lidarCloudCB(const sensor_msgs::PointCloud2ConstPtr& cloudMsg);
         void detectionCB(const ros::TimerEvent&);
         void lidarDetectionCB(const ros::TimerEvent&);
         void trackingCB(const ros::TimerEvent&);

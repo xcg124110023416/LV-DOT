@@ -600,15 +600,21 @@ namespace onboardDetector{
     void dynamicDetector::registerCallback(){
         // depth pose callback
         this->depthSub_.reset(new message_filters::Subscriber<sensor_msgs::Image>(this->nh_, this->depthTopicName_, 50));
+        this->lidarCloudSub_.reset(new message_filters::Subscriber<sensor_msgs::PointCloud2>(this->nh_, this->lidarTopicName_, 50));
+        // this->lidarCloudSub_ = this->nh_.subscribe(this->lidarTopicName_, 10, &dynamicDetector::lidarCloudCB, this);
         if (this->localizationMode_ == 0){
             this->poseSub_.reset(new message_filters::Subscriber<geometry_msgs::PoseStamped>(this->nh_, this->poseTopicName_, 25));
             this->depthPoseSync_.reset(new message_filters::Synchronizer<depthPoseSync>(depthPoseSync(100), *this->depthSub_, *this->poseSub_));
             this->depthPoseSync_->registerCallback(boost::bind(&dynamicDetector::depthPoseCB, this, _1, _2));
+            this->lidarPoseSync_.reset(new message_filters::Synchronizer<lidarPoseSync>(lidarPoseSync(100), *this->lidarCloudSub_, *this->poseSub_));
+            this->lidarPoseSync_->registerCallback(boost::bind(&dynamicDetector::lidarPoseCB, this, _1, _2));
         }
         else if (this->localizationMode_ == 1){
             this->odomSub_.reset(new message_filters::Subscriber<nav_msgs::Odometry>(this->nh_, this->odomTopicName_, 25));
             this->depthOdomSync_.reset(new message_filters::Synchronizer<depthOdomSync>(depthOdomSync(100), *this->depthSub_, *this->odomSub_));
             this->depthOdomSync_->registerCallback(boost::bind(&dynamicDetector::depthOdomCB, this, _1, _2));
+            this->lidarOdomSync_.reset(new message_filters::Synchronizer<lidarOdomSync>(lidarOdomSync(100), *this->lidarCloudSub_, *this->odomSub_));
+            this->lidarOdomSync_->registerCallback(boost::bind(&dynamicDetector::lidarOdomCB, this, _1, _2));
         }
         else{
             ROS_ERROR("[dynamicDetector]: Invalid localization mode!");
@@ -620,9 +626,6 @@ namespace onboardDetector{
 
         // yolo detection results subscriber
         this->yoloDetectionSub_ = this->nh_.subscribe("yolo_detector/detected_bounding_boxes", 10, &dynamicDetector::yoloDetectionCB, this);
-
-        // lidar point cloud subscriber
-        this->lidarCloudSub_ = this->nh_.subscribe(this->lidarTopicName_, 10, &dynamicDetector::lidarCloudCB, this);
 
         // detection timer
         this->detectionTimer_ = this->nh_.createTimer(ros::Duration(this->dt_), &dynamicDetector::detectionCB, this);
@@ -695,6 +698,7 @@ namespace onboardDetector{
 
         return true;
     }
+
     void dynamicDetector::depthPoseCB(const sensor_msgs::ImageConstPtr& img, const geometry_msgs::PoseStampedConstPtr& pose){
         // store current depth image
         cv_bridge::CvImagePtr imgPtr = cv_bridge::toCvCopy(img, img->encoding);
@@ -704,9 +708,8 @@ namespace onboardDetector{
         imgPtr->image.copyTo(this->depthImage_);
 
         // store current position and orientation (camera)
-        Eigen::Matrix4d camPoseDepthMatrix, camPoseColorMatrix, lidarPoseMatrix;
+        Eigen::Matrix4d camPoseDepthMatrix, camPoseColorMatrix;
         this->getCameraPose(pose, camPoseDepthMatrix, camPoseColorMatrix);
-        this->getLidarPose(pose, lidarPoseMatrix);
 
         this->position_(0) = pose->pose.position.x;
         this->position_(1) = pose->pose.position.y;
@@ -725,12 +728,6 @@ namespace onboardDetector{
         this->positionColor_(1) = camPoseColorMatrix(1, 3);
         this->positionColor_(2) = camPoseColorMatrix(2, 3);
         this->orientationColor_ = camPoseColorMatrix.block<3, 3>(0, 0);
-
-        this->positionLidar_(0) = lidarPoseMatrix(0, 3);
-        this->positionLidar_(1) = lidarPoseMatrix(1, 3);
-        this->positionLidar_(2) = lidarPoseMatrix(2, 3);
-        this->orientationLidar_ = lidarPoseMatrix.block<3, 3>(0, 0);
-        this->hasSensorPose_ = true;
     }
 
     void dynamicDetector::depthOdomCB(const sensor_msgs::ImageConstPtr& img, const nav_msgs::OdometryConstPtr& odom){
@@ -742,9 +739,8 @@ namespace onboardDetector{
         imgPtr->image.copyTo(this->depthImage_);
 
         // store current position and orientation (camera)
-        Eigen::Matrix4d camPoseDepthMatrix, camPoseColorMatrix, lidarPoseMatrix;
+        Eigen::Matrix4d camPoseDepthMatrix, camPoseColorMatrix;
         this->getCameraPose(odom, camPoseDepthMatrix, camPoseColorMatrix);
-        this->getLidarPose(odom, lidarPoseMatrix);
 
         this->position_(0) = odom->pose.pose.position.x;
         this->position_(1) = odom->pose.pose.position.y;
@@ -763,12 +759,208 @@ namespace onboardDetector{
         this->positionColor_(1) = camPoseColorMatrix(1, 3);
         this->positionColor_(2) = camPoseColorMatrix(2, 3);
         this->orientationColor_ = camPoseColorMatrix.block<3, 3>(0, 0);
+    }
+
+    void dynamicDetector::lidarPoseCB(const sensor_msgs::PointCloud2ConstPtr& cloudMsg, const geometry_msgs::PoseStampedConstPtr& pose){
+        // for visualization
+        this->latestCloud_ = cloudMsg;
+
+        // local cloud
+        pcl::PointCloud<pcl::PointXYZ>::Ptr tempCloud (new pcl::PointCloud<pcl::PointXYZ>());
+        pcl::fromROSMsg(*cloudMsg, *tempCloud);
+
+        // filter and downsample pointcloud
+        // Create a filtered cloud pointer to store intermediate results
+        pcl::PointCloud<pcl::PointXYZ>::Ptr filteredCloud (new pcl::PointCloud<pcl::PointXYZ>());
+
+        // Apply a pass-through filter to limit points to the local sensor range in X, Y, and Z axes
+        pcl::PassThrough<pcl::PointXYZ> pass;
+
+        // Filter for X axis
+        pass.setInputCloud(tempCloud);
+        pass.setFilterFieldName("x");
+        pass.setFilterLimits(-this->localLidarRange_.x(), this->localLidarRange_.x());
+        pass.filter(*filteredCloud);
+
+        // Filter for Y axis
+        pass.setInputCloud(filteredCloud);
+        pass.setFilterFieldName("y");
+        pass.setFilterLimits(-this->localLidarRange_.y(), this->localLidarRange_.y());
+        pass.filter(*filteredCloud);
+
+        int sigma = this->gaussianDownSampleRate_;
+
+        pcl::PointCloud<pcl::PointXYZ>::Ptr preTransformCloud(new pcl::PointCloud<pcl::PointXYZ>());
+        preTransformCloud->reserve(filteredCloud->size());
+
+        for (pcl::PointXYZ &pt : filteredCloud->points) {
+            double dist = pow(pow(pt.x, 2) + pow(pt.y, 2), 0.5);
+            double p = std::exp(-(dist * dist) / (2 * sigma * sigma));
+
+            double r = static_cast<float>(rand()) / static_cast<float>(RAND_MAX);
+            if (r < p) {
+                preTransformCloud->push_back(pt);
+            }
+        }
+
+        // transform
+        Eigen::Affine3d transform = Eigen::Affine3d::Identity();
+        transform.linear() = this->orientationLidar_;
+        transform.translation() = this->positionLidar_;
+
+        // map cloud
+        // Create an empty point cloud to store the transformed data
+        pcl::PointCloud<pcl::PointXYZ>::Ptr transformedCloud (new pcl::PointCloud<pcl::PointXYZ>());
+
+        // Apply the transformation
+        pcl::transformPointCloud(*preTransformCloud, *transformedCloud, transform);
+
+        // filter roof and ground 
+        pcl::PointCloud<pcl::PointXYZ>::Ptr groundRoofFilterCloud (new pcl::PointCloud<pcl::PointXYZ>());
+        pass.setInputCloud(transformedCloud);
+        pass.setFilterFieldName("z");
+        pass.setFilterLimits(this->groundHeight_, this->roofHeight_);
+        pass.filter(*groundRoofFilterCloud);
+
+        pcl::PointCloud<pcl::PointXYZ>::Ptr downsampledCloud = groundRoofFilterCloud;
+        // Create the VoxelGrid filter object
+        pcl::VoxelGrid<pcl::PointXYZ> sor;
+        // sor.setInputCloud(filteredCloud);
+        sor.setInputCloud(groundRoofFilterCloud);
+
+        // Set the leaf size (adjust to control the downsampling)
+        sor.setLeafSize(0.1f, 0.1f, 0.1f); // Try different values based on your point cloud density
+
+        // If the downsampled cloud has more than certain points, further increase the leaf size
+        while (int(downsampledCloud->size()) > this->downSampleThresh_) {
+            double leafSize = sor.getLeafSize().x() * 1.1f; // Increase the leaf size to reduce point count
+            sor.setLeafSize(leafSize, leafSize, leafSize);
+            sor.filter(*downsampledCloud);
+        }
+
+        this->lidarCloud_ = downsampledCloud;
+        sensor_msgs::PointCloud2 outputCloud;
+        pcl::toROSMsg(*this->lidarCloud_, outputCloud); // Convert to ROS message
+        outputCloud.header.frame_id = "map";    // Set appropriate frame ID
+        this->downSamplePointsPub_.publish(outputCloud);
+
+        // store current position and orientation
+        Eigen::Matrix4d lidarPoseMatrix;
+        this->getLidarPose(pose, lidarPoseMatrix);
+
+        this->position_(0) = pose->pose.position.x;
+        this->position_(1) = pose->pose.position.y;
+        this->position_(2) = pose->pose.position.z;
+        Eigen::Quaterniond quat;
+        quat = Eigen::Quaterniond(pose->pose.orientation.w, pose->pose.orientation.x, pose->pose.orientation.y, pose->pose.orientation.z);
+        Eigen::Matrix3d rot = quat.toRotationMatrix();
+        this->orientation_ = rot;
 
         this->positionLidar_(0) = lidarPoseMatrix(0, 3);
         this->positionLidar_(1) = lidarPoseMatrix(1, 3);
         this->positionLidar_(2) = lidarPoseMatrix(2, 3);
         this->orientationLidar_ = lidarPoseMatrix.block<3, 3>(0, 0);
-        this->hasSensorPose_ = true;
+    }
+
+    void dynamicDetector::lidarOdomCB(const sensor_msgs::PointCloud2ConstPtr& cloudMsg, const nav_msgs::OdometryConstPtr& odom){
+        // for visualization
+        this->latestCloud_ = cloudMsg;
+
+        // local cloud
+        pcl::PointCloud<pcl::PointXYZ>::Ptr tempCloud (new pcl::PointCloud<pcl::PointXYZ>());
+        pcl::fromROSMsg(*cloudMsg, *tempCloud);
+
+        // filter and downsample pointcloud
+        // Create a filtered cloud pointer to store intermediate results
+        pcl::PointCloud<pcl::PointXYZ>::Ptr filteredCloud (new pcl::PointCloud<pcl::PointXYZ>());
+
+        // Apply a pass-through filter to limit points to the local sensor range in X, Y, and Z axes
+        pcl::PassThrough<pcl::PointXYZ> pass;
+
+        // Filter for X axis
+        pass.setInputCloud(tempCloud);
+        pass.setFilterFieldName("x");
+        pass.setFilterLimits(-this->localLidarRange_.x(), this->localLidarRange_.x());
+        pass.filter(*filteredCloud);
+
+        // Filter for Y axis
+        pass.setInputCloud(filteredCloud);
+        pass.setFilterFieldName("y");
+        pass.setFilterLimits(-this->localLidarRange_.y(), this->localLidarRange_.y());
+        pass.filter(*filteredCloud);
+
+        int sigma = this->gaussianDownSampleRate_;
+
+        pcl::PointCloud<pcl::PointXYZ>::Ptr preTransformCloud(new pcl::PointCloud<pcl::PointXYZ>());
+        preTransformCloud->reserve(filteredCloud->size());
+
+        for (pcl::PointXYZ &pt : filteredCloud->points) {
+            double dist = pow(pow(pt.x, 2) + pow(pt.y, 2), 0.5);
+            double p = std::exp(-(dist * dist) / (2 * sigma * sigma));
+
+            double r = static_cast<float>(rand()) / static_cast<float>(RAND_MAX);
+            if (r < p) {
+                preTransformCloud->push_back(pt);
+            }
+        }
+
+        // transform
+        Eigen::Affine3d transform = Eigen::Affine3d::Identity();
+        transform.linear() = this->orientationLidar_;
+        transform.translation() = this->positionLidar_;
+
+        // map cloud
+        // Create an empty point cloud to store the transformed data
+        pcl::PointCloud<pcl::PointXYZ>::Ptr transformedCloud (new pcl::PointCloud<pcl::PointXYZ>());
+
+        // Apply the transformation
+        pcl::transformPointCloud(*preTransformCloud, *transformedCloud, transform);
+
+        // filter roof and ground 
+        pcl::PointCloud<pcl::PointXYZ>::Ptr groundRoofFilterCloud (new pcl::PointCloud<pcl::PointXYZ>());
+        pass.setInputCloud(transformedCloud);
+        pass.setFilterFieldName("z");
+        pass.setFilterLimits(this->groundHeight_, this->roofHeight_);
+        pass.filter(*groundRoofFilterCloud);
+
+        pcl::PointCloud<pcl::PointXYZ>::Ptr downsampledCloud = groundRoofFilterCloud;
+        // Create the VoxelGrid filter object
+        pcl::VoxelGrid<pcl::PointXYZ> sor;
+        // sor.setInputCloud(filteredCloud);
+        sor.setInputCloud(groundRoofFilterCloud);
+
+        // Set the leaf size (adjust to control the downsampling)
+        sor.setLeafSize(0.1f, 0.1f, 0.1f); // Try different values based on your point cloud density
+
+        // If the downsampled cloud has more than certain points, further increase the leaf size
+        while (int(downsampledCloud->size()) > this->downSampleThresh_) {
+            double leafSize = sor.getLeafSize().x() * 1.1f; // Increase the leaf size to reduce point count
+            sor.setLeafSize(leafSize, leafSize, leafSize);
+            sor.filter(*downsampledCloud);
+        }
+
+        this->lidarCloud_ = downsampledCloud;
+        sensor_msgs::PointCloud2 outputCloud;
+        pcl::toROSMsg(*this->lidarCloud_, outputCloud); // Convert to ROS message
+        outputCloud.header.frame_id = "map";    // Set appropriate frame ID
+        this->downSamplePointsPub_.publish(outputCloud);
+        
+        // store current position and orientation
+        Eigen::Matrix4d lidarPoseMatrix;
+        this->getLidarPose(odom, lidarPoseMatrix);
+
+        this->position_(0) = odom->pose.pose.position.x;
+        this->position_(1) = odom->pose.pose.position.y;
+        this->position_(2) = odom->pose.pose.position.z;
+        Eigen::Quaterniond quat;
+        quat = Eigen::Quaterniond(odom->pose.pose.orientation.w, odom->pose.pose.orientation.x, odom->pose.pose.orientation.y, odom->pose.pose.orientation.z);
+        Eigen::Matrix3d rot = quat.toRotationMatrix();
+        this->orientation_ = rot;
+
+        this->positionLidar_(0) = lidarPoseMatrix(0, 3);
+        this->positionLidar_(1) = lidarPoseMatrix(1, 3);
+        this->positionLidar_(2) = lidarPoseMatrix(2, 3);
+        this->orientationLidar_ = lidarPoseMatrix.block<3, 3>(0, 0);
     }
 
     void dynamicDetector::colorImgCB(const sensor_msgs::ImageConstPtr& img){
@@ -780,130 +972,7 @@ namespace onboardDetector{
         this->yoloDetectionResults_ = *detections;
     }
 
-    void dynamicDetector::lidarCloudCB(const sensor_msgs::PointCloud2ConstPtr& cloudMsg){
-        try {
-            if (this->hasSensorPose_){
-                // for visualization
-                this->latestCloud_ = cloudMsg;
-
-                // local cloud
-                pcl::PointCloud<pcl::PointXYZ>::Ptr tempCloud (new pcl::PointCloud<pcl::PointXYZ>());
-                pcl::fromROSMsg(*cloudMsg, *tempCloud);
-
-                // filter and downsample pointcloud
-                // Create a filtered cloud pointer to store intermediate results
-                pcl::PointCloud<pcl::PointXYZ>::Ptr filteredCloud (new pcl::PointCloud<pcl::PointXYZ>());
-
-                // Apply a pass-through filter to limit points to the local sensor range in X, Y, and Z axes
-                pcl::PassThrough<pcl::PointXYZ> pass;
-
-                // Filter for X axis
-                pass.setInputCloud(tempCloud);
-                pass.setFilterFieldName("x");
-                pass.setFilterLimits(-this->localLidarRange_.x(), this->localLidarRange_.x());
-                pass.filter(*filteredCloud);
-
-                // Filter for Y axis
-                pass.setInputCloud(filteredCloud);
-                pass.setFilterFieldName("y");
-                pass.setFilterLimits(-this->localLidarRange_.y(), this->localLidarRange_.y());
-                pass.filter(*filteredCloud);
-
-                int sigma = this->gaussianDownSampleRate_;
-    
-                pcl::PointCloud<pcl::PointXYZ>::Ptr preTransformCloud(new pcl::PointCloud<pcl::PointXYZ>());
-                preTransformCloud->reserve(filteredCloud->size());
-
-                for (pcl::PointXYZ &pt : filteredCloud->points) {
-                    double dist = pow(pow(pt.x, 2) + pow(pt.y, 2), 0.5);
-                    double p = std::exp(-(dist * dist) / (2 * sigma * sigma));
-
-                    double r = static_cast<float>(rand()) / static_cast<float>(RAND_MAX);
-                    if (r < p) {
-                        preTransformCloud->push_back(pt);
-                    }
-                }
-                // ROS_INFO("Gaussian downsample rate: %f", float(preTransformCloud->size()) / float(filteredCloud->size()));
-
-                // for (auto &pt : filteredCloud->points) {
-                //     // still compute probability p based on XY distance
-                //     float manhattanDist = std::fabs(pt.x) + std::fabs(pt.y);
-                //     float p = std::exp(- (manhattanDist * manhattanDist) / (2 * sigma * sigma));
-
-                //     // quantize X,Y only; skip Z
-                //     int x_q = static_cast<int>(std::round(pt.x * 10));
-                //     int y_q = static_cast<int>(std::round(pt.y * 10));
-
-                //     // hash only X,Y
-                //     size_t hashValue = 1469598103934665603ULL; // FNV64 offset basis
-                //     auto hash_combine = [&](int v) {
-                //         hashValue ^= std::hash<int>()(v) + 0x9e3779b97f4a7c15ULL + (hashValue << 6) + (hashValue >> 2);
-                //     };
-                //     hash_combine(x_q);
-                //     hash_combine(y_q);
-
-                //     // map hashValue to [0,1)
-                //     double r = double(hashValue % 1000000ULL) / 1000000.0;
-
-                //     if (r < p) {
-                //         preTransformCloud->push_back(pt);
-                //     }
-                // }
-
-                // transform
-                Eigen::Affine3d transform = Eigen::Affine3d::Identity();
-                transform.linear() = this->orientationLidar_;
-                transform.translation() = this->positionLidar_;
-
-                // map cloud
-                // Create an empty point cloud to store the transformed data
-                pcl::PointCloud<pcl::PointXYZ>::Ptr transformedCloud (new pcl::PointCloud<pcl::PointXYZ>());
-
-                // Apply the transformation
-                pcl::transformPointCloud(*preTransformCloud, *transformedCloud, transform);
-
-                // filter roof and ground 
-                pcl::PointCloud<pcl::PointXYZ>::Ptr groundRoofFilterCloud (new pcl::PointCloud<pcl::PointXYZ>());
-                pass.setInputCloud(transformedCloud);
-                pass.setFilterFieldName("z");
-                pass.setFilterLimits(this->groundHeight_, this->roofHeight_);
-                pass.filter(*groundRoofFilterCloud);
-
-                pcl::PointCloud<pcl::PointXYZ>::Ptr downsampledCloud = groundRoofFilterCloud;
-                // Create the VoxelGrid filter object
-                pcl::VoxelGrid<pcl::PointXYZ> sor;
-                // sor.setInputCloud(filteredCloud);
-                sor.setInputCloud(groundRoofFilterCloud);
-
-                // Set the leaf size (adjust to control the downsampling)
-                sor.setLeafSize(0.1f, 0.1f, 0.1f); // Try different values based on your point cloud density
-
-                // If the downsampled cloud has more than certain points, further increase the leaf size
-                while (int(downsampledCloud->size()) > this->downSampleThresh_) {
-                    double leafSize = sor.getLeafSize().x() * 1.1f; // Increase the leaf size to reduce point count
-                    sor.setLeafSize(leafSize, leafSize, leafSize);
-                    sor.filter(*downsampledCloud);
-                }
-
-                this->lidarCloud_ = downsampledCloud;
-                sensor_msgs::PointCloud2 outputCloud;
-                pcl::toROSMsg(*this->lidarCloud_, outputCloud); // Convert to ROS message
-                outputCloud.header.frame_id = "map";    // Set appropriate frame ID
-                this->downSamplePointsPub_.publish(outputCloud);
-                // ROS_INFO("Downsampled Size: %d", int(downsampledCloud->size()));
-            }
-        }
-        catch (const pcl::PCLException& e) {
-            ROS_ERROR("PCL Exception during conversion: %s", e.what());
-        }
-        catch (const std::exception& e) {
-            ROS_ERROR("Standard Exception during conversion: %s", e.what());
-        }
-        catch (...) {
-            ROS_ERROR("Unknown error during point cloud conversion.");
-        }
-    }
-
+   
     void dynamicDetector::lidarDetectionCB(const ros::TimerEvent&){
         this->lidarDetect();
     }
