@@ -545,6 +545,10 @@ namespace onboardDetector{
         // color 2D bounding boxes pub
         this->detectedColorImgPub_ = it.advertise(this->ns_ + "/detected_color_image", 10);
 
+        // 将原始 /Odometry (nav_msgs/Odometry) → 转换 → /Odometry_pose (geometry_msgs/PoseStamped)
+        this->posePub_ = this->nh_.advertise<geometry_msgs::PoseStamped>("/mavros/local_position/pose", 10);
+        this->odomPub_ = this->nh_.advertise<geometry_msgs::PoseStamped>("/mavros/local_position/odom", 10);
+
         // uv detector bounding box pub
         this->uvBBoxesPub_ = this->nh_.advertise<visualization_msgs::MarkerArray>(this->ns_ + "/uv_bboxes", 10);
 
@@ -620,6 +624,8 @@ namespace onboardDetector{
             ROS_ERROR("[dynamicDetector]: Invalid localization mode!");
             exit(0);
         }
+        // 订阅/Odometry (nav_msgs/Odometry格式) 转换为 (geometry_msgs/PoseStamped格式)
+        this->odom_sub_ = this->nh_.subscribe("/Odometry", 10, &dynamicDetector::odomCB, this);
 
         // color image subscriber
         this->colorImgSub_ = this->nh_.subscribe(this->colorImgTopicName_, 10, &dynamicDetector::colorImgCB, this);
@@ -961,6 +967,20 @@ namespace onboardDetector{
         this->positionLidar_(1) = lidarPoseMatrix(1, 3);
         this->positionLidar_(2) = lidarPoseMatrix(2, 3);
         this->orientationLidar_ = lidarPoseMatrix.block<3, 3>(0, 0);
+    }
+
+    void dynamicDetector::odomCB(const nav_msgs::OdometryConstPtr& odom){
+        // publish pose
+        geometry_msgs::PoseStamped poseMsg;
+        poseMsg.header = odom->header;
+        poseMsg.pose = odom->pose.pose;
+        this->posePub_.publish(poseMsg);
+
+        // publish odom
+        geometry_msgs::PoseStamped odomMsg;
+        odomMsg.header = odom->header;
+        odomMsg.pose = odom->pose.pose;
+        this->odomPub_.publish(odomMsg);
     }
 
     void dynamicDetector::colorImgCB(const sensor_msgs::ImageConstPtr& img){
