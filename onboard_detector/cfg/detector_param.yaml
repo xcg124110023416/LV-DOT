@@ -1,11 +1,11 @@
-localization_mode: 0 # 0: pose (default) 1: odom
+localization_mode: 1 # 0: pose (default) 1: odom
 
 # ROS Topics
 depth_image_topic: /camera/depth/image_rect_raw
 color_image_topic: /camera/color/image_raw
 lidar_pointcloud_topic: /cloud_registered_body
 pose_topic: /mavros/local_position/pose
-odom_topic: /mavros/local_position/odom
+odom_topic: /Odometry
 
 # Camera Parameters
 depth_intrinsics: [391.628967285156, 391.628967285156, 325.104583740234, 242.993713378906] # fx,  fy, cx, cy realsense
