@@ -8,8 +8,8 @@ pose_topic: /mavros/local_position/pose
 odom_topic: /Odometry
 
 # Camera Parameters
-depth_intrinsics: [391.628967285156, 391.628967285156, 325.104583740234, 242.993713378906] # fx,  fy, cx, cy realsense
-color_intrinsics: [385.490692138672, 384.561645507812, 327.457946777344, 240.050018310547] # intel realsense
+depth_intrinsics: [392.8587099769421, 393.2159946540348, 325.91665792277485, 242.77030805045558] # fx,  fy, cx, cy realsense
+color_intrinsics: [388.5290849430315, 388.5176391089194, 321.29555077644204, 245.77610177632218] # intel realsense
 depth_scale_factor: 1000 # 1000 for Intel Realsense Camera
 depth_min_value: 0.5
 depth_max_value: 5.0
