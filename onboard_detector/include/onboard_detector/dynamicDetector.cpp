@@ -15,6 +15,7 @@ namespace onboardDetector{
         this->ns_ = "onboard_detector";
         this->hint_ = "[onboardDetector]";
         this->nh_ = nh;
+        this->hasSensorPose_ = false;
         this->initParam();
         this->registerPub();
         this->registerCallback();
@@ -727,6 +728,8 @@ namespace onboardDetector{
         this->positionColor_(1) = camPoseColorMatrix(1, 3);
         this->positionColor_(2) = camPoseColorMatrix(2, 3);
         this->orientationColor_ = camPoseColorMatrix.block<3, 3>(0, 0);
+
+        this->hasSensorPose_ = true;
     }
 
     void dynamicDetector::depthOdomCB(const sensor_msgs::ImageConstPtr& img, const nav_msgs::OdometryConstPtr& odom){
@@ -758,6 +761,8 @@ namespace onboardDetector{
         this->positionColor_(1) = camPoseColorMatrix(1, 3);
         this->positionColor_(2) = camPoseColorMatrix(2, 3);
         this->orientationColor_ = camPoseColorMatrix.block<3, 3>(0, 0);
+
+        this->hasSensorPose_ = true;
     }
 
     void dynamicDetector::lidarPoseCB(const sensor_msgs::PointCloud2ConstPtr& cloudMsg, const geometry_msgs::PoseStampedConstPtr& pose){
@@ -859,6 +864,8 @@ namespace onboardDetector{
         this->positionLidar_(1) = lidarPoseMatrix(1, 3);
         this->positionLidar_(2) = lidarPoseMatrix(2, 3);
         this->orientationLidar_ = lidarPoseMatrix.block<3, 3>(0, 0);
+
+        this->hasSensorPose_ = true;
     }
 
     void dynamicDetector::lidarOdomCB(const sensor_msgs::PointCloud2ConstPtr& cloudMsg, const nav_msgs::OdometryConstPtr& odom){
@@ -960,6 +967,8 @@ namespace onboardDetector{
         this->positionLidar_(1) = lidarPoseMatrix(1, 3);
         this->positionLidar_(2) = lidarPoseMatrix(2, 3);
         this->orientationLidar_ = lidarPoseMatrix.block<3, 3>(0, 0);
+
+        this->hasSensorPose_ = true;
     }
 
     void dynamicDetector::colorImgCB(const sensor_msgs::ImageConstPtr& img){
@@ -2554,9 +2563,11 @@ namespace onboardDetector{
                 cloudMsg.header.frame_id = "map";
                 cloudMsg.header.stamp = ros::Time::now();
                 this->rawLidarPointsPub_.publish(cloudMsg);
+                // cout<<"Published raw lidar points in map frame."<<endl;
             }
             else {
                 pcl::fromROSMsg(*this->latestCloud_, *globalCloud);
+                // cout<<"Sensor pose not available yet. Using point cloud in original frame."<<endl;
             }
             
             std::vector<Eigen::Vector3d> dynamicEigenPoints;
