@@ -29,6 +29,11 @@ namespace onboardDetector{
     }
 
     void dynamicDetector::initParam(){
+        if (not this->nh_.getParam("color_distance", this->colorDistance_)){
+			this->colorDistance_ = 5.0; // change color for obstacles in meter distance
+			cout << this->hint_ << ": No color distance param. Use default value: 5.0m." << endl;
+		}
+
         // localization mode
         if (not this->nh_.getParam(this->ns_ + "/localization_mode", this->localizationMode_)){
             this->localizationMode_ = 0;
@@ -643,7 +648,7 @@ namespace onboardDetector{
         this->visTimer_ = this->nh_.createTimer(ros::Duration(this->dt_), &dynamicDetector::visCB, this);
         
 		// get dynamic obstacle service
-		this->getDynamicObstacleServer_ = this->nh_.advertiseService("onboard_detector/get_dynamic_obstacles", &dynamicDetector::getDynamicObstacles, this);
+		// this->getDynamicObstacleServer_ = this->nh_.advertiseService("onboard_detector/get_dynamic_obstacles", &dynamicDetector::getDynamicObstacles, this);
     }
 
     bool dynamicDetector::getDynamicObstacles(onboard_detector::GetDynamicObstacles::Request& req, 
@@ -2726,5 +2731,25 @@ namespace onboardDetector{
                 }
             }
         }
+	}
+
+    bool dynamicDetector::isObstacleInSensorRange(const onboardDetector::box3D& ob, double fov){
+		Eigen::Vector3d pRobot (this->position_(0), this->position_(1), this->position_(2));
+		Eigen::Vector3d pObstacle (ob.x, ob.y, ob.z);	
+		
+		Eigen::Vector3d diff = pObstacle - pRobot;
+		diff(2) = 0.0;
+		double distance = diff.norm();
+		double yaw = atan2(this->orientation_(1, 0), this->orientation_(0, 0));
+		Eigen::Vector3d direction (cos(yaw), sin(yaw), 0);
+
+		double angle = angleBetweenVectors(direction, diff);
+		if (angle <= fov/2 and distance <= this->colorDistance_){
+			return true;
+		}
+		else{
+			return false;
+		}
+	
 	}
 }

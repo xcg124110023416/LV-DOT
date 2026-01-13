@@ -106,6 +106,7 @@ namespace onboardDetector{
 
         // PARAMETETER
         // Topics
+        int colorDistance_;
         int localizationMode_;
         std::string depthTopicName_;
         std::string colorImgTopicName_;
@@ -214,6 +215,7 @@ namespace onboardDetector{
         cv::Mat detectedColorImage_;
 
     public:
+        typedef std::shared_ptr<dynamicDetector> Ptr;
         dynamicDetector();
         dynamicDetector(const ros::NodeHandle& nh);
         void initDetector(const ros::NodeHandle& nh);
@@ -305,7 +307,9 @@ namespace onboardDetector{
         void getLidarPose(const nav_msgs::OdometryConstPtr& odom, Eigen::Matrix4d& lidarPoseMatrix);
         onboardDetector::Point eigenToDBPoint(const Eigen::Vector3d& p);
         Eigen::Vector3d dbPointToEigen(const onboardDetector::Point& pDB);
-        void eigenToDBPointVec(const std::vector<Eigen::Vector3d>& points, std::vector<onboardDetector::Point>& pointsDB, int size);       
+        void eigenToDBPointVec(const std::vector<Eigen::Vector3d>& points, std::vector<onboardDetector::Point>& pointsDB, int size);  
+        
+        bool isObstacleInSensorRange(const onboardDetector::box3D& ob, double fov);
     };
 
 
