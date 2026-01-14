@@ -1153,28 +1153,28 @@ namespace onboardDetector{
     }
 
     void dynamicDetector::visCB(const ros::TimerEvent&){
-        this->publishUVImages();
-        this->publishColorImages();
+        // this->publishUVImages();
+        // this->publishColorImages();
         
-        this->publish3dBox(this->uvBBoxes_, this->uvBBoxesPub_, 0, 1, 0);
-        this->publish3dBox(this->dbBBoxes_, this->dbBBoxesPub_, 1, 0, 0);
-        this->publish3dBox(this->visualBBoxes_, this->visualBBoxesPub_, 0.3, 0.8, 1.0);
-        this->publish3dBox(this->lidarBBoxes_, this->lidarBBoxesPub_, 0.5, 0.5, 0.5); // raw lidar cluster bounding boxes
-        this->publish3dBox(this->filteredBBoxesBeforeYolo_, this->filteredBBoxesBeforeYoloPub_, 0, 1, 0.5);
-        this->publish3dBox(this->filteredBBoxes_, this->filteredBBoxesPub_, 0, 1, 1);
-        this->publish3dBox(this->trackedBBoxes_, this->trackedBBoxesPub_, 1, 1, 0);
+        // this->publish3dBox(this->uvBBoxes_, this->uvBBoxesPub_, 0, 1, 0);
+        // this->publish3dBox(this->dbBBoxes_, this->dbBBoxesPub_, 1, 0, 0);
+        // this->publish3dBox(this->visualBBoxes_, this->visualBBoxesPub_, 0.3, 0.8, 1.0);
+        // this->publish3dBox(this->lidarBBoxes_, this->lidarBBoxesPub_, 0.5, 0.5, 0.5); // raw lidar cluster bounding boxes
+        // this->publish3dBox(this->filteredBBoxesBeforeYolo_, this->filteredBBoxesBeforeYoloPub_, 0, 1, 0.5);
+        // this->publish3dBox(this->filteredBBoxes_, this->filteredBBoxesPub_, 0, 1, 1);
+        // this->publish3dBox(this->trackedBBoxes_, this->trackedBBoxesPub_, 1, 1, 0);
         this->publish3dBox(this->dynamicBBoxes_, this->dynamicBBoxesPub_, 0, 0, 1);
 
-        this->publishLidarClusters(); // colored clusters
-        this->publishFilteredPoints();
-        std::vector<Eigen::Vector3d> dynamicPoints;
-        this->getDynamicPc(dynamicPoints);
-        this->publishPoints(dynamicPoints, this->dynamicPointsPub_);
-        this->publishPoints(this->filteredDepthPoints_, this->filteredDepthPointsPub_);
-        this->publishRawDynamicPoints();
+        // this->publishLidarClusters(); // colored clusters
+        // this->publishFilteredPoints();
+        // std::vector<Eigen::Vector3d> dynamicPoints;
+        // this->getDynamicPc(dynamicPoints);
+        // this->publishPoints(dynamicPoints, this->dynamicPointsPub_);
+        // this->publishPoints(this->filteredDepthPoints_, this->filteredDepthPointsPub_);
+        // this->publishRawDynamicPoints();
 
-        this->publishHistoryTraj();
-        this->publishVelVis();
+        // this->publishHistoryTraj();
+        // this->publishVelVis();
     }
 
     void dynamicDetector::uvDetect(){
