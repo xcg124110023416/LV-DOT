@@ -1445,118 +1445,119 @@ namespace onboardDetector{
 
 
         // STEP 5: If YOLO detection results are available, improve the classification and splitting potential incorrect bboxes
-        if (this->yoloDetectionResults_.detections.size() != 0){
+        if (this->yoloDetectionResults_.detections.size() != 0) {
             std::vector<int> best3DBBoxForYOLO(this->yoloDetectionResults_.detections.size(), -1);
 
-            // Project 2D bbox in color image plane from 3D
+            // --- 预处理：先把所有 3D BBox 投影到 2D 图像平面 ---
             vision_msgs::Detection2DArray filteredDetectionResults;
-            for (int j=0; j<int(filteredBBoxesTemp.size()); ++j){
+            for (int j = 0; j < int(filteredBBoxesTemp.size()); ++j) {
                 onboardDetector::box3D bbox = filteredBBoxesTemp[j];
 
-                // 1. transform the bounding boxes into the camera frame
-                Eigen::Vector3d centerWorld (bbox.x, bbox.y, bbox.z);
-                Eigen::Vector3d sizeWorld (bbox.x_width, bbox.y_width, bbox.z_width);
+                // 1. 变换到相机坐标系
+                Eigen::Vector3d centerWorld(bbox.x, bbox.y, bbox.z);
+                Eigen::Vector3d sizeWorld(bbox.x_width, bbox.y_width, bbox.z_width);
                 Eigen::Vector3d centerCam, sizeCam;
                 this->transformBBox(centerWorld, sizeWorld, -this->orientationColor_.inverse() * this->positionColor_, this->orientationColor_.inverse(), centerCam, sizeCam);
 
-                // 2. find the top left and bottom right corner 3D position of the transformed bbox
-                Eigen::Vector3d topleft (centerCam(0)-sizeCam(0)/2, centerCam(1)-sizeCam(1)/2, centerCam(2));
-                Eigen::Vector3d bottomright (centerCam(0)+sizeCam(0)/2, centerCam(1)+sizeCam(1)/2, centerCam(2));
+                // 2. 计算 3D 框在相机下的角点
+                Eigen::Vector3d topleft(centerCam(0) - sizeCam(0) / 2, centerCam(1) - sizeCam(1) / 2, centerCam(2));
+                Eigen::Vector3d bottomright(centerCam(0) + sizeCam(0) / 2, centerCam(1) + sizeCam(1) / 2, centerCam(2));
 
-                // 3. project those two points into the camera image plane
+                // 3. 投影到像素平面 (Pinhole Model)
                 int tlX = (this->fxC_ * topleft(0) + this->cxC_ * topleft(2)) / topleft(2);
                 int tlY = (this->fyC_ * topleft(1) + this->cyC_ * topleft(2)) / topleft(2);
                 int brX = (this->fxC_ * bottomright(0) + this->cxC_ * bottomright(2)) / bottomright(2);
                 int brY = (this->fyC_ * bottomright(1) + this->cyC_ * bottomright(2)) / bottomright(2);
 
                 vision_msgs::Detection2D result;
-                result.bbox.center.x = tlX;
+                result.bbox.center.x = tlX; // 注意：这里的 center.x 其实存的是左上角 X，为了后续计算方便，暂且复用结构体
                 result.bbox.center.y = tlY;
                 result.bbox.size_x = brX - tlX;
                 result.bbox.size_y = brY - tlY;
                 filteredDetectionResults.detections.push_back(result);
-
-                // cv::Rect bboxVis;
-                // bboxVis.x = tlX;
-                // bboxVis.y = tlY;
-                // bboxVis.height = brY - tlY;
-                // bboxVis.width = brX - tlX;
-                // cv::rectangle(this->detectedColorImage_, bboxVis, cv::Scalar(0, 255, 0), 5, 8, 0);
             }
 
-            for (int i=0; i<int(this->yoloDetectionResults_.detections.size()); ++i){
-                int tlXTarget = int(this->yoloDetectionResults_.detections[i].bbox.center.x);
-                int tlYTarget = int(this->yoloDetectionResults_.detections[i].bbox.center.y);
-                int brXTarget = tlXTarget + int(this->yoloDetectionResults_.detections[i].bbox.size_x);
-                int brYTarget = tlYTarget + int(this->yoloDetectionResults_.detections[i].bbox.size_y);
+            // --- 核心循环：将 YOLO 框与 3D 投影框进行 IoU 匹配 ---
+            for (int i = 0; i < int(this->yoloDetectionResults_.detections.size()); ++i) {
+                // [修正 1] 正确计算 YOLO 框的左上角和右下角
+                double yoloW = this->yoloDetectionResults_.detections[i].bbox.size_x;
+                double yoloH = this->yoloDetectionResults_.detections[i].bbox.size_y;
+                double yoloCX = this->yoloDetectionResults_.detections[i].bbox.center.x;
+                double yoloCY = this->yoloDetectionResults_.detections[i].bbox.center.y;
 
+                int tlXTarget = int(yoloCX - yoloW / 2.0);
+                int tlYTarget = int(yoloCY - yoloH / 2.0);
+                int brXTarget = int(tlXTarget + yoloW);
+                int brYTarget = int(tlYTarget + yoloH);
+
+                // 可视化：画出 YOLO 框 (Blue)
                 cv::Rect bboxVis;
                 bboxVis.x = tlXTarget;
                 bboxVis.y = tlYTarget;
-                bboxVis.height = brYTarget - tlYTarget;
                 bboxVis.width = brXTarget - tlXTarget;
-                cv::rectangle(this->detectedColorImage_, bboxVis, cv::Scalar(255, 0, 0), 5, 8, 0);
+                bboxVis.height = brYTarget - tlYTarget;
+                cv::rectangle(this->detectedColorImage_, bboxVis, cv::Scalar(255, 0, 0), 2); // 减小线宽，太粗挡视野
 
-                // Define the text to be added
+                // 添加文字标签
                 std::string text = "dynamic";
-
-                // Define the position for the text (above the bounding box)
-                int fontFace = cv::FONT_HERSHEY_SIMPLEX;
-                double fontScale = 1.0;
-                int thickness = 2;
-                int baseline;
-                cv::getTextSize(text, fontFace, fontScale, thickness, &baseline);
-                cv::Point textOrg(bboxVis.x, bboxVis.y - 10);  // 10 pixels above the bounding box
-
-                // Add the text to the image
-                cv::putText(this->detectedColorImage_, text, textOrg, fontFace, fontScale, cv::Scalar(255, 0, 0), thickness, 8);
+                cv::putText(this->detectedColorImage_, text, cv::Point(bboxVis.x, bboxVis.y - 10), 
+                            cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(255, 0, 0), 1); // 字体调小一点
 
                 double bestIOU = 0.0;
                 int bestIdx = -1;
+                
+                // 寻找 IoU 最大的 3D 框
                 for (int j = 0; j < int(filteredBBoxesTemp.size()); ++j) {
+                    // 取出之前投影好的 3D 框坐标 (复用了 center.x 存左上角)
                     int tlX = int(filteredDetectionResults.detections[j].bbox.center.x);
                     int tlY = int(filteredDetectionResults.detections[j].bbox.center.y);
-                    int brX = tlX + int(filteredDetectionResults.detections[j].bbox.size_x);
-                    int brY = tlY + int(filteredDetectionResults.detections[j].bbox.size_y);
+                    int w = int(filteredDetectionResults.detections[j].bbox.size_x);
+                    int h = int(filteredDetectionResults.detections[j].bbox.size_y);
+                    int brX = tlX + w;
+                    int brY = tlY + h;
 
-                    // check the IOU between yolo and projected bbox
-                    double xOverlap = double(std::max(0, std::min(brX, brXTarget) - std::max(tlX, tlXTarget)));
-                    double yOverlap = double(std::max(0, std::min(brY, brYTarget) - std::max(tlY, tlYTarget)));
+                    // 计算 Intersection
+                    double xOverlap = std::max(0.0, std::min((double)brX, (double)brXTarget) - std::max((double)tlX, (double)tlXTarget));
+                    double yOverlap = std::max(0.0, std::min((double)brY, (double)brYTarget) - std::max((double)tlY, (double)tlYTarget));
                     double intersection = xOverlap * yOverlap;
 
-                    // Calculate union area
-                    double areaBox = double((brX - tlX) * (brY - tlY));
-                    double areaBoxTarget = double((brXTarget - tlXTarget) * (brYTarget - tlYTarget));
+                    // 计算 Union
+                    double areaBox = (double)(w * h);
+                    double areaBoxTarget = (double)((brXTarget - tlXTarget) * (brYTarget - tlYTarget));
                     double unionArea = areaBox + areaBoxTarget - intersection;
 
-                    double IOU = (unionArea == 0) ? 0 : intersection / unionArea;
-                    if (IOU > bestIOU){
+                    double IOU = (unionArea <= 1e-6) ? 0 : intersection / unionArea;
+                    if (IOU > bestIOU) {
                         bestIOU = IOU;
                         bestIdx = j;
                     }
                 }
 
-                if (bestIOU > 0.0){
+                // 只有 IoU > 0 才认为匹配上了 (可以设置一个阈值比如 0.1)
+                if (bestIOU > 0.0) {
                     best3DBBoxForYOLO[i] = bestIdx;
                 }
             }
 
+            // --- 建立反向映射：3D Box ID -> List of YOLO IDs ---
             std::map<int, std::vector<int>> box3DToYolo;
             for (int i = 0; i < int(best3DBBoxForYOLO.size()); ++i) {
                 int idx3D = best3DBBoxForYOLO[i];
-                if (idx3D >= 0 && idx3D < int(filteredBBoxesTemp.size())){
+                if (idx3D >= 0 && idx3D < int(filteredBBoxesTemp.size())) {
                     box3DToYolo[idx3D].push_back(i);
                 }
             }
 
+            // --- 结果重构：根据映射关系拆分或保留 3D 框 ---
             std::vector<onboardDetector::box3D> newFilteredBBoxes;
             std::vector<std::vector<Eigen::Vector3d>> newFilteredPcClusters;
             std::vector<Eigen::Vector3d> newFilteredPcClusterCenters;
             std::vector<Eigen::Vector3d> newFilteredPcClusterStds;
-            
+
             for (int idx3D = 0; idx3D < int(filteredBBoxesTemp.size()); ++idx3D) {
                 auto it = box3DToYolo.find(idx3D);
-                // *Case 1: No corresponding yolo box
+                
+                // *Case 1: No corresponding yolo box (保留原样)
                 if (it == box3DToYolo.end()) {
                     newFilteredBBoxes.push_back(filteredBBoxesTemp[idx3D]);
                     newFilteredPcClusters.push_back(filteredPcClustersTemp[idx3D]);
@@ -1566,7 +1567,8 @@ namespace onboardDetector{
                 }
 
                 std::vector<int> yoloIndices = it->second;
-                // *Case 2: one yolo box corresponds to one 3D box
+                
+                // *Case 2: One yolo box matches one 3D box (直接标记为动态/人)
                 if (yoloIndices.size() == 1) {
                     filteredBBoxesTemp[idx3D].is_dynamic = true;
                     filteredBBoxesTemp[idx3D].is_human = true;
@@ -1574,106 +1576,86 @@ namespace onboardDetector{
                     newFilteredPcClusters.push_back(filteredPcClustersTemp[idx3D]);
                     newFilteredPcClusterCenters.push_back(filteredPcClusterCentersTemp[idx3D]);
                     newFilteredPcClusterStds.push_back(filteredPcClusterStdsTemp[idx3D]);
-                // *Case 3: multiple yolo boxes correspond to one 3D box
+                
+                // *Case 3: Multiple yolo boxes match one 3D box (需要根据视觉结果拆分点云)
                 } else {
                     std::vector<Eigen::Vector3d> cloudCluster = filteredPcClustersTemp[idx3D];
+                    std::vector<int> assignment(cloudCluster.size(), -1); // 记录每个点属于哪个 YOLO 框
 
-                    // iterate to assign all points
-                    int allowMargin = 0; // pixel 
-                    std::vector<int> assignment(cloudCluster.size(), -1);
-                    for (size_t i = 0; i < cloudCluster.size(); ++i){
-                        Eigen::Vector3d ptWorld = cloudCluster[i];
+                    // 遍历该簇中的每个点
+                    for (size_t k = 0; k < cloudCluster.size(); ++k) {
+                        Eigen::Vector3d ptWorld = cloudCluster[k];
                         Eigen::Vector3d ptCam = this->orientationColor_.inverse() * (ptWorld - this->positionColor_);
-
+                        
+                        // 投影点到 2D
+                        if (ptCam(2) <= 0.1) continue; // 深度太近或在背后，跳过
                         int u = (this->fxC_ * ptCam(0) + this->cxC_ * ptCam(2)) / ptCam(2);
                         int v = (this->fyC_ * ptCam(1) + this->cyC_ * ptCam(2)) / ptCam(2);
 
-                        int closestDist = std::numeric_limits<int>::max();
-                        for (int yidx : yoloIndices){
-                            int XTarget = int(this->yoloDetectionResults_.detections[yidx].bbox.center.x);
-                            int YTarget = int(this->yoloDetectionResults_.detections[yidx].bbox.center.y);
-                            int XTargetWid = int(this->yoloDetectionResults_.detections[yidx].bbox.size_x);
-                            int YTargetWid = int(this->yoloDetectionResults_.detections[yidx].bbox.size_y);
-                            int xMin = XTarget;
-                            int xMax = XTarget + XTargetWid;
-                            int yMin = YTarget;
-                            int yMax = YTarget + YTargetWid;
+                        double minCenterDist = std::numeric_limits<double>::max();
+                        int bestYoloIdx = -1;
 
-                            if (u >= xMin-allowMargin && u <= xMax+allowMargin && v >= yMin-allowMargin && v <= yMax+allowMargin) {
-                                // Horizontal signed distance
-                                int horizontalDistance = 0;
-                                if (u < xMin) {
-                                    horizontalDistance = xMin - u; // Outside on the left
-                                } else if (u > xMax) {
-                                    horizontalDistance = u - xMax; // Outside on the right
-                                } else {
-                                    horizontalDistance = std::max(xMin - u, u - xMax); // Inside horizontally
-                                }
+                        // 检查该点落在哪个 YOLO 框内
+                        for (int yidx : yoloIndices) {
+                            // [修正 2] 再次修正坐标计算
+                            double yW = this->yoloDetectionResults_.detections[yidx].bbox.size_x;
+                            double yH = this->yoloDetectionResults_.detections[yidx].bbox.size_y;
+                            double yCX = this->yoloDetectionResults_.detections[yidx].bbox.center.x;
+                            double yCY = this->yoloDetectionResults_.detections[yidx].bbox.center.y;
 
-                                // Compute signed distance to the closest edge
-                                int signedDistance;
-                                if (u < xMin || u > xMax || v < yMin || v > yMax) {
-                                    // Outside: Take the larger of horizontal or vertical distance
-                                    signedDistance = horizontalDistance;
-                                } else {
-                                    // Inside: Take the negative of the minimum distance to any edge
-                                    signedDistance = horizontalDistance;
-                                }
-          
-                                int distance = signedDistance;
-                                if (distance < closestDist){
-                                    assignment[i] = yidx;
-                                    closestDist = distance;
+                            int xMin = int(yCX - yW / 2.0);
+                            int xMax = int(xMin + yW);
+                            int yMin = int(yCY - yH / 2.0);
+                            int yMax = int(yMin + yH);
+
+                            // 宽松边界检查 (allowMargin = 5 pixel)
+                            int margin = 5;
+                            if (u >= xMin - margin && u <= xMax + margin && v >= yMin - margin && v <= yMax + margin) {
+                                // 如果点在框内，计算到框中心的距离 (欧氏距离)
+                                double dist = std::pow(u - yCX, 2) + std::pow(v - yCY, 2);
+                                if (dist < minCenterDist) {
+                                    minCenterDist = dist;
+                                    bestYoloIdx = yidx;
                                 }
                             }
                         }
+                        assignment[k] = bestYoloIdx;
                     }
 
-                    std::vector<bool> flag(cloudCluster.size(), false);
-                    for (int yidx : yoloIndices){
+                    // 根据分配结果生成新的 3D 框
+                    std::vector<bool> pointUsed(cloudCluster.size(), false);
+                    for (int yidx : yoloIndices) {
                         std::vector<Eigen::Vector3d> subCloud;
-                        for (size_t i = 0; i < cloudCluster.size(); ++i){
-                            if (flag[i]){
-                                continue;
-                            }
-
-                            if (assignment[i] == yidx){
-                                subCloud.push_back(cloudCluster[i]);
-                                flag[i] = true;
+                        for (size_t k = 0; k < cloudCluster.size(); ++k) {
+                            // 每个点只能被用一次 (虽然 assignment 保证了唯一性，但双重保险)
+                            if (!pointUsed[k] && assignment[k] == yidx) {
+                                subCloud.push_back(cloudCluster[k]);
+                                pointUsed[k] = true;
                             }
                         }
-                        if (subCloud.size() != 0){
+
+                        // 如果拆分出的子点云点数够多，则生成新框
+                        if (subCloud.size() > 5) { // 阈值：至少5个点
                             onboardDetector::box3D newBox;
-                            Eigen::Vector3d center, stddev;
-                            center = computeCenter(subCloud);
+                            Eigen::Vector3d center = computeCenter(subCloud);
+                            Eigen::Vector3d stddev = computeStd(subCloud, center);
 
-                            double xMin = std::numeric_limits<double>::max(), xMax = std::numeric_limits<double>::lowest();
-                            double yMin = std::numeric_limits<double>::max(), yMax = std::numeric_limits<double>::lowest();
-                            double zMin = std::numeric_limits<double>::max(), zMax = std::numeric_limits<double>::lowest();
-
+                            double xMin = 1e9, xMax = -1e9, yMin = 1e9, yMax = -1e9, zMin = 1e9, zMax = -1e9;
                             for (const auto &pt : subCloud) {
-                                xMin = std::min(xMin, pt.x());
-                                xMax = std::max(xMax, pt.x());
-                                yMin = std::min(yMin, pt.y());
-                                yMax = std::max(yMax, pt.y());
-                                zMin = std::min(zMin, pt.z());
-                                zMax = std::max(zMax, pt.z());
+                                xMin = std::min(xMin, pt.x()); xMax = std::max(xMax, pt.x());
+                                yMin = std::min(yMin, pt.y()); yMax = std::max(yMax, pt.y());
+                                zMin = std::min(zMin, pt.z()); zMax = std::max(zMax, pt.z());
                             }
-                            // create a new bounding box
+
                             newBox.x = (xMin + xMax) / 2.;
                             newBox.y = (yMin + yMax) / 2.;
                             newBox.z = (zMin + zMax) / 2.;
                             newBox.x_width = xMax - xMin;
                             newBox.y_width = yMax - yMin;
                             newBox.z_width = zMax - zMin;
-                            if (newBox.x_width <= 0 or newBox.y_width <= 0 or newBox.x_width <= 0){
-                                continue;
-                            }
-
                             newBox.is_dynamic = true;
                             newBox.is_human = true;
 
-                            stddev = computeStd(subCloud, center);
                             newFilteredBBoxes.push_back(newBox);
                             newFilteredPcClusters.push_back(subCloud);
                             newFilteredPcClusterCenters.push_back(center);
@@ -1682,6 +1664,7 @@ namespace onboardDetector{
                     }
                 }
             }
+            // 更新结果
             filteredBBoxesTemp = newFilteredBBoxes;
             filteredPcClustersTemp = newFilteredPcClusters;
             filteredPcClusterCentersTemp = newFilteredPcClusterCenters;
