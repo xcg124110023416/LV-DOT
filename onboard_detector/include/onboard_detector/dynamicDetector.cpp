@@ -601,6 +601,9 @@ namespace onboardDetector{
 
         // velocity visualization pub
         this->velVisPub_ = this->nh_.advertise<visualization_msgs::MarkerArray>(this->ns_ + "/velocity_visualizaton", 10);
+
+        // 动态障碍物信息发布给规划器（位置、速度、尺寸）
+        this->dynObstaclesPub_ = this->nh_.advertise<onboard_detector::DynamicObstacles>(this->ns_ + "/dynamic_obstacles_info", 10);
     }   
 
     void dynamicDetector::registerCallback(){
@@ -1174,7 +1177,10 @@ namespace onboardDetector{
         // this->publishRawDynamicPoints();
 
         // this->publishHistoryTraj();
-        // this->publishVelVis();
+        this->publishVelVis();
+        
+        // 发布动态障碍物信息给规划器
+        this->publishDynamicObstacles();
     }
 
     void dynamicDetector::uvDetect(){
@@ -2468,6 +2474,38 @@ namespace onboardDetector{
             ++countMarker;
         }
         this->velVisPub_.publish(velVisMsg);
+    }
+
+    void dynamicDetector::publishDynamicObstacles(){
+        // 发布动态障碍物信息给规划器使用
+        onboard_detector::DynamicObstacles msg;
+        msg.header.stamp = ros::Time::now();
+        msg.header.frame_id = "map";
+        msg.num = this->dynamicBBoxes_.size();
+        
+        for (size_t i = 0; i < this->dynamicBBoxes_.size(); ++i) {
+            geometry_msgs::Vector3 pos, vel, size;
+            
+            // 位置（中心坐标）
+            pos.x = this->dynamicBBoxes_[i].x;
+            pos.y = this->dynamicBBoxes_[i].y;
+            pos.z = this->dynamicBBoxes_[i].z;
+            msg.position.push_back(pos);
+            
+            // 速度
+            vel.x = this->dynamicBBoxes_[i].Vx;
+            vel.y = this->dynamicBBoxes_[i].Vy;
+            vel.z = 0.0;  // 通常z方向速度为0
+            msg.velocity.push_back(vel);
+            
+            // 尺寸（完整尺寸）
+            size.x = this->dynamicBBoxes_[i].x_width;
+            size.y = this->dynamicBBoxes_[i].y_width;
+            size.z = this->dynamicBBoxes_[i].z_width;
+            msg.size.push_back(size);
+        }
+        
+        this->dynObstaclesPub_.publish(msg);
     }
 
     void dynamicDetector::publishLidarClusters(){

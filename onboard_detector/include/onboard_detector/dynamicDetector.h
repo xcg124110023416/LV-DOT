@@ -31,6 +31,7 @@
 #include <onboard_detector/kalmanFilter.h>
 #include <onboard_detector/utils.h>
 #include <onboard_detector/GetDynamicObstacles.h>
+#include <onboard_detector/DynamicObstacles.h>
 
 namespace onboardDetector{
     class dynamicDetector{
@@ -80,6 +81,7 @@ namespace onboardDetector{
         ros::Publisher rawLidarPointsPub_;
         ros::Publisher historyTrajPub_;
         ros::Publisher velVisPub_;
+        ros::Publisher dynObstaclesPub_;  // 发布动态障碍物信息给规划器
         ros::ServiceServer getDynamicObstacleServer_;
     
         // DETECTOR
@@ -280,6 +282,7 @@ namespace onboardDetector{
         void publish3dBox(const std::vector<onboardDetector::box3D>& bboxes, const ros::Publisher& publisher, double r, double g, double b);
         void publishHistoryTraj();
         void publishVelVis();
+        void publishDynamicObstacles();  // 发布动态障碍物信息话题
         void publishLidarClusters();
         void publishFilteredPoints();
         void publishRawDynamicPoints();
