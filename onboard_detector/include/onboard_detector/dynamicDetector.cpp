@@ -2499,9 +2499,9 @@ namespace onboardDetector{
             msg.velocity.push_back(vel);
             
             // 尺寸（完整尺寸）
-            size.x = this->dynamicBBoxes_[i].x_width;
-            size.y = this->dynamicBBoxes_[i].y_width;
-            size.z = this->dynamicBBoxes_[i].z_width;
+            size.x = this->dynamicBBoxes_[i].x_width;//深
+            size.y = this->dynamicBBoxes_[i].y_width;//宽
+            size.z = this->dynamicBBoxes_[i].z_width;//高
             msg.size.push_back(size);
         }
         
