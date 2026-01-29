@@ -1166,7 +1166,7 @@ namespace onboardDetector{
         // this->publish3dBox(this->filteredBBoxesBeforeYolo_, this->filteredBBoxesBeforeYoloPub_, 0, 1, 0.5);
         // this->publish3dBox(this->filteredBBoxes_, this->filteredBBoxesPub_, 0, 1, 1);
         // this->publish3dBox(this->trackedBBoxes_, this->trackedBBoxesPub_, 1, 1, 0);
-        this->publish3dBox(this->dynamicBBoxes_, this->dynamicBBoxesPub_, 0, 0, 1);
+        this->publish3dBox(this->dynamicBBoxes_, this->dynamicBBoxesPub_, 0, 0, 0);
 
         // this->publishLidarClusters(); // colored clusters
         // this->publishFilteredPoints();
@@ -1177,7 +1177,7 @@ namespace onboardDetector{
         // this->publishRawDynamicPoints();
 
         // this->publishHistoryTraj();
-        this->publishVelVis();
+        // this->publishVelVis();
         
         // 发布动态障碍物信息给规划器
         this->publishDynamicObstacles();
