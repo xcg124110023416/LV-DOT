@@ -239,6 +239,46 @@ namespace onboardDetector{
             std::cout << this->hint_ << ": Time step for the system is set to: " << this->dt_ << std::endl;
         }  
 
+        if (not this->nh_.getParam(this->ns_ + "/enable_depth_detection", this->enableDepthDetection_)){
+            this->enableDepthDetection_ = true;
+            std::cout << this->hint_ << ": No depth detection switch found. Use default: true." << std::endl;
+        }
+
+        if (not this->nh_.getParam(this->ns_ + "/enable_lidar_detection", this->enableLidarDetection_)){
+            this->enableLidarDetection_ = true;
+            std::cout << this->hint_ << ": No LiDAR detection switch found. Use default: true." << std::endl;
+        }
+
+        if (not this->nh_.getParam(this->ns_ + "/enable_yolo_filtering", this->enableYoloFiltering_)){
+            this->enableYoloFiltering_ = true;
+            std::cout << this->hint_ << ": No YOLO filtering switch found. Use default: true." << std::endl;
+        }
+
+        if (not this->nh_.getParam(this->ns_ + "/enable_debug_visualization", this->enableDebugVisualization_)){
+            this->enableDebugVisualization_ = false;
+            std::cout << this->hint_ << ": No debug visualization switch found. Use default: false." << std::endl;
+        }
+
+        auto rateToDt = [this](const std::string& paramName, double defaultRate){
+            double rate;
+            if (not this->nh_.getParam(this->ns_ + "/" + paramName, rate)){
+                rate = defaultRate;
+                std::cout << this->hint_ << ": No " << paramName << " found. Use default: " << defaultRate << "Hz." << std::endl;
+            }
+            if (rate <= 0.0){
+                std::cout << this->hint_ << ": Invalid " << paramName << ". Use 1Hz fallback." << std::endl;
+                rate = 1.0;
+            }
+            return 1.0 / rate;
+        };
+
+        this->depthDetectionDt_ = rateToDt("depth_detection_rate", 10.0);
+        this->lidarDetectionDt_ = rateToDt("lidar_detection_rate", 15.0);
+        this->trackingDt_ = rateToDt("tracking_rate", 30.0);
+        this->classificationDt_ = rateToDt("classification_rate", 10.0);
+        this->publishDt_ = rateToDt("dynamic_obstacle_publish_rate", 15.0);
+        this->visualizationDt_ = rateToDt("visualization_rate", 2.0);
+
         // ground height
         if (not this->nh_.getParam(this->ns_ + "/ground_height", this->groundHeight_)){
             this->groundHeight_ = 0.1;
@@ -607,48 +647,71 @@ namespace onboardDetector{
     }   
 
     void dynamicDetector::registerCallback(){
-        // depth pose callback
-        this->depthSub_.reset(new message_filters::Subscriber<sensor_msgs::Image>(this->nh_, this->depthTopicName_, 50));
-        this->lidarCloudSub_.reset(new message_filters::Subscriber<sensor_msgs::PointCloud2>(this->nh_, this->lidarTopicName_, 50));
-        // this->lidarCloudSub_ = this->nh_.subscribe(this->lidarTopicName_, 10, &dynamicDetector::lidarCloudCB, this);
+        if (this->enableDepthDetection_){
+            this->depthSub_.reset(new message_filters::Subscriber<sensor_msgs::Image>(this->nh_, this->depthTopicName_, 50));
+        }
+        if (this->enableLidarDetection_){
+            this->lidarCloudSub_.reset(new message_filters::Subscriber<sensor_msgs::PointCloud2>(this->nh_, this->lidarTopicName_, 50));
+        }
+
         if (this->localizationMode_ == 0){
             this->poseSub_.reset(new message_filters::Subscriber<geometry_msgs::PoseStamped>(this->nh_, this->poseTopicName_, 25));
-            this->depthPoseSync_.reset(new message_filters::Synchronizer<depthPoseSync>(depthPoseSync(100), *this->depthSub_, *this->poseSub_));
-            this->depthPoseSync_->registerCallback(boost::bind(&dynamicDetector::depthPoseCB, this, _1, _2));
-            this->lidarPoseSync_.reset(new message_filters::Synchronizer<lidarPoseSync>(lidarPoseSync(100), *this->lidarCloudSub_, *this->poseSub_));
-            this->lidarPoseSync_->registerCallback(boost::bind(&dynamicDetector::lidarPoseCB, this, _1, _2));
+            if (this->enableDepthDetection_){
+                this->depthPoseSync_.reset(new message_filters::Synchronizer<depthPoseSync>(depthPoseSync(100), *this->depthSub_, *this->poseSub_));
+                this->depthPoseSync_->registerCallback(boost::bind(&dynamicDetector::depthPoseCB, this, _1, _2));
+            }
+            if (this->enableLidarDetection_){
+                this->lidarPoseSync_.reset(new message_filters::Synchronizer<lidarPoseSync>(lidarPoseSync(100), *this->lidarCloudSub_, *this->poseSub_));
+                this->lidarPoseSync_->registerCallback(boost::bind(&dynamicDetector::lidarPoseCB, this, _1, _2));
+            }
         }
         else if (this->localizationMode_ == 1){
             this->odomSub_.reset(new message_filters::Subscriber<nav_msgs::Odometry>(this->nh_, this->odomTopicName_, 25));
-            this->depthOdomSync_.reset(new message_filters::Synchronizer<depthOdomSync>(depthOdomSync(100), *this->depthSub_, *this->odomSub_));
-            this->depthOdomSync_->registerCallback(boost::bind(&dynamicDetector::depthOdomCB, this, _1, _2));
-            this->lidarOdomSync_.reset(new message_filters::Synchronizer<lidarOdomSync>(lidarOdomSync(100), *this->lidarCloudSub_, *this->odomSub_));
-            this->lidarOdomSync_->registerCallback(boost::bind(&dynamicDetector::lidarOdomCB, this, _1, _2));
+            if (this->enableDepthDetection_){
+                this->depthOdomSync_.reset(new message_filters::Synchronizer<depthOdomSync>(depthOdomSync(100), *this->depthSub_, *this->odomSub_));
+                this->depthOdomSync_->registerCallback(boost::bind(&dynamicDetector::depthOdomCB, this, _1, _2));
+            }
+            if (this->enableLidarDetection_){
+                this->lidarOdomSync_.reset(new message_filters::Synchronizer<lidarOdomSync>(lidarOdomSync(100), *this->lidarCloudSub_, *this->odomSub_));
+                this->lidarOdomSync_->registerCallback(boost::bind(&dynamicDetector::lidarOdomCB, this, _1, _2));
+            }
         }
         else{
             ROS_ERROR("[dynamicDetector]: Invalid localization mode!");
             exit(0);
         }
         // color image subscriber
-        this->colorImgSub_ = this->nh_.subscribe(this->colorImgTopicName_, 10, &dynamicDetector::colorImgCB, this);
+        if (this->enableYoloFiltering_ or this->enableDebugVisualization_){
+            this->colorImgSub_ = this->nh_.subscribe(this->colorImgTopicName_, 10, &dynamicDetector::colorImgCB, this);
+        }
 
         // yolo detection results subscriber
-        this->yoloDetectionSub_ = this->nh_.subscribe("yolo_detector/detected_bounding_boxes", 10, &dynamicDetector::yoloDetectionCB, this);
+        if (this->enableYoloFiltering_){
+            this->yoloDetectionSub_ = this->nh_.subscribe("yolo_detector/detected_bounding_boxes", 10, &dynamicDetector::yoloDetectionCB, this);
+        }
 
         // detection timer
-        this->detectionTimer_ = this->nh_.createTimer(ros::Duration(this->dt_), &dynamicDetector::detectionCB, this);
+        if (this->enableDepthDetection_){
+            this->detectionTimer_ = this->nh_.createTimer(ros::Duration(this->depthDetectionDt_), &dynamicDetector::detectionCB, this);
+        }
 
         // lidar detection timer
-        this->lidarDetectionTimer_ = this->nh_.createTimer(ros::Duration(this->dt_), &dynamicDetector::lidarDetectionCB, this);
+        if (this->enableLidarDetection_){
+            this->lidarDetectionTimer_ = this->nh_.createTimer(ros::Duration(this->lidarDetectionDt_), &dynamicDetector::lidarDetectionCB, this);
+        }
 
         // tracking timer
-        this->trackingTimer_ = this->nh_.createTimer(ros::Duration(this->dt_), &dynamicDetector::trackingCB, this);
+        this->trackingTimer_ = this->nh_.createTimer(ros::Duration(this->trackingDt_), &dynamicDetector::trackingCB, this);
 
         // classification timer
-        this->classificationTimer_ = this->nh_.createTimer(ros::Duration(this->dt_), &dynamicDetector::classificationCB, this);
+        this->classificationTimer_ = this->nh_.createTimer(ros::Duration(this->classificationDt_), &dynamicDetector::classificationCB, this);
     
         // visualization timer
-        this->visTimer_ = this->nh_.createTimer(ros::Duration(this->dt_), &dynamicDetector::visCB, this);
+        if (this->enableDebugVisualization_){
+            this->visTimer_ = this->nh_.createTimer(ros::Duration(this->visualizationDt_), &dynamicDetector::visCB, this);
+        }
+
+        this->publishTimer_ = this->nh_.createTimer(ros::Duration(this->publishDt_), &dynamicDetector::publishCB, this);
         
 		// get dynamic obstacle service
 		// this->getDynamicObstacleServer_ = this->nh_.advertiseService("onboard_detector/get_dynamic_obstacles", &dynamicDetector::getDynamicObstacles, this);
@@ -815,6 +878,23 @@ namespace onboardDetector{
             }
         }
 
+        // store current position and orientation before transforming this frame
+        Eigen::Matrix4d lidarPoseMatrix;
+        this->getLidarPose(pose, lidarPoseMatrix);
+
+        this->position_(0) = pose->pose.position.x;
+        this->position_(1) = pose->pose.position.y;
+        this->position_(2) = pose->pose.position.z;
+        Eigen::Quaterniond quat;
+        quat = Eigen::Quaterniond(pose->pose.orientation.w, pose->pose.orientation.x, pose->pose.orientation.y, pose->pose.orientation.z);
+        Eigen::Matrix3d rot = quat.toRotationMatrix();
+        this->orientation_ = rot;
+
+        this->positionLidar_(0) = lidarPoseMatrix(0, 3);
+        this->positionLidar_(1) = lidarPoseMatrix(1, 3);
+        this->positionLidar_(2) = lidarPoseMatrix(2, 3);
+        this->orientationLidar_ = lidarPoseMatrix.block<3, 3>(0, 0);
+
         // transform
         Eigen::Affine3d transform = Eigen::Affine3d::Identity();
         transform.linear() = this->orientationLidar_;
@@ -855,23 +935,6 @@ namespace onboardDetector{
         pcl::toROSMsg(*this->lidarCloud_, outputCloud); // Convert to ROS message
         outputCloud.header.frame_id = "map";    // Set appropriate frame ID
         this->downSamplePointsPub_.publish(outputCloud);
-
-        // store current position and orientation
-        Eigen::Matrix4d lidarPoseMatrix;
-        this->getLidarPose(pose, lidarPoseMatrix);
-
-        this->position_(0) = pose->pose.position.x;
-        this->position_(1) = pose->pose.position.y;
-        this->position_(2) = pose->pose.position.z;
-        Eigen::Quaterniond quat;
-        quat = Eigen::Quaterniond(pose->pose.orientation.w, pose->pose.orientation.x, pose->pose.orientation.y, pose->pose.orientation.z);
-        Eigen::Matrix3d rot = quat.toRotationMatrix();
-        this->orientation_ = rot;
-
-        this->positionLidar_(0) = lidarPoseMatrix(0, 3);
-        this->positionLidar_(1) = lidarPoseMatrix(1, 3);
-        this->positionLidar_(2) = lidarPoseMatrix(2, 3);
-        this->orientationLidar_ = lidarPoseMatrix.block<3, 3>(0, 0);
 
         this->hasSensorPose_ = true;
     }
@@ -918,6 +981,23 @@ namespace onboardDetector{
             }
         }
 
+        // store current position and orientation before transforming this frame
+        Eigen::Matrix4d lidarPoseMatrix;
+        this->getLidarPose(odom, lidarPoseMatrix);
+
+        this->position_(0) = odom->pose.pose.position.x;
+        this->position_(1) = odom->pose.pose.position.y;
+        this->position_(2) = odom->pose.pose.position.z;
+        Eigen::Quaterniond quat;
+        quat = Eigen::Quaterniond(odom->pose.pose.orientation.w, odom->pose.pose.orientation.x, odom->pose.pose.orientation.y, odom->pose.pose.orientation.z);
+        Eigen::Matrix3d rot = quat.toRotationMatrix();
+        this->orientation_ = rot;
+
+        this->positionLidar_(0) = lidarPoseMatrix(0, 3);
+        this->positionLidar_(1) = lidarPoseMatrix(1, 3);
+        this->positionLidar_(2) = lidarPoseMatrix(2, 3);
+        this->orientationLidar_ = lidarPoseMatrix.block<3, 3>(0, 0);
+
         // transform
         Eigen::Affine3d transform = Eigen::Affine3d::Identity();
         transform.linear() = this->orientationLidar_;
@@ -958,23 +1038,6 @@ namespace onboardDetector{
         pcl::toROSMsg(*this->lidarCloud_, outputCloud); // Convert to ROS message
         outputCloud.header.frame_id = "map";    // Set appropriate frame ID
         this->downSamplePointsPub_.publish(outputCloud);
-        
-        // store current position and orientation
-        Eigen::Matrix4d lidarPoseMatrix;
-        this->getLidarPose(odom, lidarPoseMatrix);
-
-        this->position_(0) = odom->pose.pose.position.x;
-        this->position_(1) = odom->pose.pose.position.y;
-        this->position_(2) = odom->pose.pose.position.z;
-        Eigen::Quaterniond quat;
-        quat = Eigen::Quaterniond(odom->pose.pose.orientation.w, odom->pose.pose.orientation.x, odom->pose.pose.orientation.y, odom->pose.pose.orientation.z);
-        Eigen::Matrix3d rot = quat.toRotationMatrix();
-        this->orientation_ = rot;
-
-        this->positionLidar_(0) = lidarPoseMatrix(0, 3);
-        this->positionLidar_(1) = lidarPoseMatrix(1, 3);
-        this->positionLidar_(2) = lidarPoseMatrix(2, 3);
-        this->orientationLidar_ = lidarPoseMatrix.block<3, 3>(0, 0);
 
         this->hasSensorPose_ = true;
     }
@@ -985,15 +1048,24 @@ namespace onboardDetector{
     }
 
     void dynamicDetector::yoloDetectionCB(const vision_msgs::Detection2DArrayConstPtr& detections){
+        if (not this->enableYoloFiltering_){
+            return;
+        }
         this->yoloDetectionResults_ = *detections;
     }
 
    
     void dynamicDetector::lidarDetectionCB(const ros::TimerEvent&){
+        if (not this->enableLidarDetection_){
+            return;
+        }
         this->lidarDetect();
     }
 
     void dynamicDetector::detectionCB(const ros::TimerEvent&){
+        if (not this->enableDepthDetection_){
+            return;
+        }
         // detection thread
         this->dbscanDetect();
         this->uvDetect();
@@ -1156,6 +1228,9 @@ namespace onboardDetector{
     }
 
     void dynamicDetector::visCB(const ros::TimerEvent&){
+        if (not this->enableDebugVisualization_){
+            return;
+        }
         // this->publishUVImages();
         // this->publishColorImages();
         
@@ -1178,8 +1253,9 @@ namespace onboardDetector{
 
         // this->publishHistoryTraj();
         // this->publishVelVis();
-        
-        // 发布动态障碍物信息给规划器
+    }
+
+    void dynamicDetector::publishCB(const ros::TimerEvent&){
         this->publishDynamicObstacles();
     }
 
@@ -1451,7 +1527,7 @@ namespace onboardDetector{
 
 
         // STEP 5: If YOLO detection results are available, improve the classification and splitting potential incorrect bboxes
-        if (this->yoloDetectionResults_.detections.size() != 0) {
+        if (this->enableYoloFiltering_ and this->yoloDetectionResults_.detections.size() != 0) {
             std::vector<int> best3DBBoxForYOLO(this->yoloDetectionResults_.detections.size(), -1);
 
             // --- 预处理：先把所有 3D BBox 投影到 2D 图像平面 ---

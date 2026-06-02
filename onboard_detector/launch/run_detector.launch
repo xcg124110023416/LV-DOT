@@ -1,9 +1,18 @@
 <launch>
+	<arg name="enable_yolo" default="true" />
+	<arg name="yolo_detection_rate" default="5.0" />
+	<arg name="color_image_topic" default="/camera/color/image_raw" />
+	<arg name="publish_yolo_visualization" default="false" />
+
 	<rosparam file="$(find onboard_detector)/cfg/detector_param.yaml" ns="/onboard_detector" />
 	<node pkg="onboard_detector" type="detector_node" name="detector_node" output="screen" />
     <!-- <node pkg="onboard_detector" type="yolo_detector_node.py" name="yolo_detector_node" output="screen" /> -->
     <!-- TO run yolo v11: pip install ultralytics -->
-    <node pkg="onboard_detector" type="yolov11_detector_node.py" name="yolov11_detector_node" output="log" />
+    <node pkg="onboard_detector" type="yolov11_detector_node.py" name="yolov11_detector_node" output="log" if="$(arg enable_yolo)">
+		<param name="image_topic" value="$(arg color_image_topic)" />
+		<param name="detection_rate" value="$(arg yolo_detection_rate)" />
+		<param name="publish_visualization" value="$(arg publish_yolo_visualization)" />
+	</node>
 	<!-- <node name="rviz" pkg="rviz" type="rviz" args="-d $(find onboard_detector)/rviz/detector.rviz"/> -->
 	<!-- <node name="rviz" pkg="rviz" type="rviz" args="-d $(find onboard_detector)/rviz/detector_lv.rviz"/> -->
 </launch>

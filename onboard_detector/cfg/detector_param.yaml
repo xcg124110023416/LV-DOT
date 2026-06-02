@@ -36,6 +36,17 @@ body_to_lidar:  [1.0,  0.0,  0.0,  0.0,
 
 # System
 time_step: 0.033
+enable_lidar_detection: true
+enable_depth_detection: true
+enable_yolo_filtering: true
+enable_debug_visualization: false
+lidar_detection_rate: 15.0
+depth_detection_rate: 10.0
+yolo_detection_rate: 5.0
+tracking_rate: 30.0
+classification_rate: 10.0
+dynamic_obstacle_publish_rate: 15.0
+visualization_rate: 2.0
 
 # DBSCAN Common
 ground_height: 0.2 # height of ground to remove ground points

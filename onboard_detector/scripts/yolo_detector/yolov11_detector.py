@@ -17,7 +17,6 @@ target_classes = ["person"]
 
 
 path_curr = os.path.dirname(__file__)
-img_topic = "/camera/color/image_raw"
 device = "cuda" if torch.cuda.is_available() else "cpu"
 weight = "weights/yolo11n.pt"
 class_names = "config/coco.names"
@@ -28,6 +27,13 @@ class yolo_detector:
 
         self.img_received = False
         self.img_detected = False
+        self.img_topic = rospy.get_param("~image_topic", "/camera/color/image_raw")
+        self.detection_rate = rospy.get_param("~detection_rate", 5.0)
+        self.publish_visualization = rospy.get_param("~publish_visualization", False)
+        if self.detection_rate <= 0.0:
+            rospy.logwarn("[onboardDetector]: invalid YOLO detection rate. Falling back to 1Hz.")
+            self.detection_rate = 1.0
+        self.detect_period = 1.0 / self.detection_rate
 
 
         # init and load
@@ -38,17 +44,18 @@ class yolo_detector:
 
         # subscriber
         self.br = CvBridge()
-        self.img_sub = rospy.Subscriber(img_topic, Image, self.image_callback)
+        self.img_sub = rospy.Subscriber(self.img_topic, Image, self.image_callback, queue_size=1)
 
         # publisher
-        self.img_pub = rospy.Publisher("yolo_detector/detected_image", Image, queue_size=10)
+        self.img_pub = rospy.Publisher("yolo_detector/detected_image", Image, queue_size=1)
         self.bbox_pub = rospy.Publisher("yolo_detector/detected_bounding_boxes", Detection2DArray, queue_size=10)
         self.time_pub = rospy.Publisher("yolo_detector/yolo_time", std_msgs.msg.Float64, queue_size=1)
 
         # timer
-        rospy.Timer(rospy.Duration(0.033), self.detect_callback)
-        rospy.Timer(rospy.Duration(0.033), self.vis_callback)
-        rospy.Timer(rospy.Duration(0.033), self.bbox_callback)
+        rospy.Timer(rospy.Duration(self.detect_period), self.detect_callback)
+        if self.publish_visualization:
+            rospy.Timer(rospy.Duration(self.detect_period), self.vis_callback)
+        rospy.Timer(rospy.Duration(self.detect_period), self.bbox_callback)
     
     def image_callback(self, msg):
         self.img = self.br.imgmsg_to_cv2(msg, "bgr8")
@@ -95,6 +102,7 @@ class yolo_detector:
         return [preds.boxes.xyxyn, preds.boxes.conf, preds.boxes.cls]
 
     def postprocess(self, ori_img, output):
+        detected_img = ori_img.copy()
         LABEL_NAMES = []
         with open(os.path.join(path_curr, class_names), 'r') as f:
             for line in f.readlines():
@@ -113,7 +121,8 @@ class yolo_detector:
             detected_box = [x1, y1, x2, y2, category]
             detected_boxes.append(detected_box)
 
-            cv2.rectangle(ori_img, (x1, y1), (x2, y2), (255, 255, 0), 2)
-            cv2.putText(ori_img, '%.2f' % obj_score, (x1, y1 - 5), 0, 0.7, (0, 255, 0), 2)  
-            cv2.putText(ori_img, category, (x1, y1 - 25), 0, 0.7, (0, 255, 0), 2)
-        return ori_img, detected_boxes
+            if self.publish_visualization:
+                cv2.rectangle(detected_img, (x1, y1), (x2, y2), (255, 255, 0), 2)
+                cv2.putText(detected_img, '%.2f' % obj_score, (x1, y1 - 5), 0, 0.7, (0, 255, 0), 2)  
+                cv2.putText(detected_img, category, (x1, y1 - 25), 0, 0.7, (0, 255, 0), 2)
+        return detected_img, detected_boxes
